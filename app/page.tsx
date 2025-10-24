@@ -437,10 +437,42 @@ export default function Page() {
       }
     }
 
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
-    window.addEventListener('resize', onResize);
-    restartButton.addEventListener('click', restartGame);
+    const isTouch = typeof window !== 'undefined' &&
+      (navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches);
+
+    window.addEventListener('keydown', onKeyDown, { passive: false });
+    window.addEventListener('keyup', onKeyUp, { passive: false });
+    window.addEventListener('resize', onResize, { passive: true });
+    restartButton.addEventListener('click', restartGame, { passive: true });
+
+    function setKey(key: string, v: boolean) {
+      keys[key] = v;
+    }
+
+    function preventScroll(e: Event) {
+      e.preventDefault();
+    }
+
+    if (isTouch) {
+      const touchTargets = Array.from(document.querySelectorAll('[data-key]')) as HTMLElement[];
+      for (const el of touchTargets) {
+        const key = el.dataset.key as string;
+        el.addEventListener('pointerdown', (e) => {
+          setKey(key, true);
+          (e as PointerEvent).preventDefault();
+          (e as PointerEvent).stopPropagation();
+          (el as HTMLElement).setPointerCapture?.((e as PointerEvent).pointerId);
+        });
+        el.addEventListener('pointerup', (e) => {
+          setKey(key, false);
+          (e as PointerEvent).preventDefault();
+          (e as PointerEvent).stopPropagation();
+        });
+        el.addEventListener('pointercancel', () => setKey(key, false));
+        el.addEventListener('pointerleave', () => setKey(key, false));
+      }
+      document.addEventListener('touchmove', preventScroll, { passive: false });
+    }
 
     initGame();
     gameLoop();
@@ -451,6 +483,7 @@ export default function Page() {
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('resize', onResize);
       restartButton.removeEventListener('click', restartGame);
+      document.removeEventListener('touchmove', preventScroll as any);
     };
   }, []);
 
@@ -458,12 +491,10 @@ export default function Page() {
     <>
       <Head>
         <title>Asteroid Shooter</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet" />
       </Head>
 
       <canvas ref={canvasRef} id="gameCanvas" />
@@ -483,10 +514,19 @@ export default function Page() {
         <button id="restartButton" ref={restartButtonRef}>Restart Game</button>
       </div>
 
+      <div id="controls" aria-hidden="true">
+        <div className="cluster left">
+          <button className="ctl" data-key="ArrowLeft" aria-label="Rotate Left">⟲</button>
+          <button className="ctl" data-key="ArrowRight" aria-label="Rotate Right">⟳</button>
+          <button className="ctl thrust" data-key="ArrowUp" aria-label="Thrust">↑</button>
+        </div>
+        <div className="cluster right">
+          <button className="ctl shoot" data-key=" " aria-label="Shoot">⦿</button>
+        </div>
+      </div>
+
       <style jsx global>{`
-        html, body, #__next {
-          height: 100%;
-        }
+        html, body, #__next { height: 100%; }
         body {
           font-family: 'Inter', sans-serif;
           background-color: #000;
@@ -494,15 +534,8 @@ export default function Page() {
           margin: 0;
           padding: 0;
           overflow: hidden;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
         }
-        canvas {
-          display: block;
-          background-color: #000;
-        }
+        canvas { display: block; background-color: #000; }
         #gameUI {
           position: absolute;
           top: 20px;
@@ -515,6 +548,7 @@ export default function Page() {
           color: white;
           pointer-events: none;
           text-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
+          z-index: 10;
         }
         #score { text-align: left; }
         #lives { text-align: right; font-size: 2rem; letter-spacing: 0.2em; }
@@ -533,6 +567,7 @@ export default function Page() {
           align-items: center;
           box-shadow: 0 0 20px rgba(0, 200, 255, 0.5);
           backdrop-filter: blur(5px);
+          z-index: 20;
         }
         #gameOver h1 { margin: 0 0 1rem 0; font-size: 3rem; color: #ff4d4d; }
         #gameOver p { margin: 0.5rem 0; font-size: 1.5rem; }
@@ -551,10 +586,7 @@ export default function Page() {
           box-shadow: 0 4px 15px rgba(0, 198, 255, 0.4);
           pointer-events: auto;
         }
-        #restartButton:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6);
-        }
+        #restartButton:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 198, 255, 0.6); }
         #instructions {
           position: absolute;
           bottom: 20px;
@@ -563,6 +595,39 @@ export default function Page() {
           color: rgba(255, 255, 255, 0.7);
           font-size: 1rem;
           pointer-events: none;
+          z-index: 10;
+        }
+        #controls {
+          position: absolute;
+          inset: 0;
+          display: none;
+          justify-content: space-between;
+          align-items: flex-end;
+          padding: 16px;
+          pointer-events: none;
+          z-index: 15;
+        }
+        #controls .cluster { display: flex; gap: 12px; pointer-events: auto; }
+        .ctl {
+          width: 64px;
+          height: 64px;
+          background: rgba(255,255,255,0.08);
+          border: 2px solid rgba(255,255,255,0.25);
+          color: #fff;
+          font-size: 1.4rem;
+          border-radius: 14px;
+          backdrop-filter: blur(6px);
+          box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+          touch-action: none;
+        }
+        .ctl:active { transform: scale(0.98); }
+        .thrust { width: 84px; }
+        .shoot { width: 90px; height: 90px; font-size: 1.8rem; border-radius: 50%; }
+
+        @media (pointer: coarse) {
+          #controls { display: flex; }
+          #instructions { display: none; }
+          body { touch-action: none; }
         }
       `}</style>
     </>
