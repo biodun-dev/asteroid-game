@@ -261,6 +261,7 @@ export default function Page() {
       }
 
       break() {
+        // Splits a large asteroid into two smaller ones and updates score tiers.
         createParticles(this.x, this.y, 'white');
         if (this.size > 1) {
           asteroids.push(new Asteroid(this.x, this.y, this.size - 1));
@@ -303,6 +304,7 @@ export default function Page() {
       }
 
       update() {
+        // Fades and disperses impact particles over time.
         this.x += this.velocity.x;
         this.y += this.velocity.y;
         this.lifetime--;
@@ -363,6 +365,7 @@ export default function Page() {
     }
 
     function handleInput() {
+      // Normalizes both keyboard and touch-button state into ship rotation/thrust/shoot.
       if (isGameOver) return;
       player.rotation = 0;
       player.thrusting = false;
@@ -376,6 +379,7 @@ export default function Page() {
     }
 
     function gameLoop() {
+      // Single RAF loop handling world update, rendering, and level progression.
       if (isGameOver) return;
       raf = requestAnimationFrame(gameLoop);
       ctx.fillStyle = 'black';
@@ -437,7 +441,9 @@ export default function Page() {
       }
     }
 
-    const isTouch = typeof window !== 'undefined' &&
+    // Detects coarse-pointer/touch devices to toggle on-screen controls and scrolling behavior.
+    const isTouch =
+      typeof window !== 'undefined' &&
       (navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches);
 
     window.addEventListener('keydown', onKeyDown, { passive: false });
@@ -450,10 +456,12 @@ export default function Page() {
     }
 
     function preventScroll(e: Event) {
+      // Prevents viewport scrolling while interacting with on-screen controls.
       e.preventDefault();
     }
 
     if (isTouch) {
+      // Wires each on-screen control to a corresponding logical key with pointer events.
       const touchTargets = Array.from(document.querySelectorAll('[data-key]')) as HTMLElement[];
       for (const el of touchTargets) {
         const key = el.dataset.key as string;
